@@ -1,0 +1,28 @@
+{
+  "name": "karmainvites",
+  "version": "1.0.0",
+  "description": "A small discord bot to crowd source invites",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy-commands": "node deploy-commands.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Chickenbreadlp/DCKarmaInvites.git"
+  },
+  "author": "Chickenbread",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Chickenbreadlp/DCKarmaInvites/issues"
+  },
+  "homepage": "https://github.com/Chickenbreadlp/DCKarmaInvites#readme",
+  "dependencies": {
+    "better-sqlite3": "^11.1.2",
+    "bufferutil": "^4.0.8",
+    "discord.js": "^14.15.3",
+    "luxon": "^3.4.4",
+    "utf-8-validate": "^6.0.4",
+    "zlib-sync": "^0.1.9"
+  }
+}

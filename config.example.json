@@ -1,0 +1,9 @@
+{
+  "token": "[BOT_TOKEN]",
+  "applicationId": "[APPLICATION_ID]",
+  "privateGuildId": "[YOUR_MANAGEMENT_GUILD]",
+  "guildId": "[YOUR_PRODUCTION_GUILD]",
+  "verifiedMemberRoleId": "[YOUR_MEMBER_ROLE_ID]",
+  "maxInvites": 10,
+  "inviteAwardThreashold": 3
+}
