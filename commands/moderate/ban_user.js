@@ -31,8 +31,6 @@ module.exports = {
             }
 
             db.warnUser(user.id, toolkit.WarningTypes.PermBan);
-            // make sure all their invites get removed
-            db.retractInvites(user.id, 1000);
 
             const inviter = db.whoInvited(user.id);
             let inviterPunished = false;
@@ -50,7 +48,7 @@ module.exports = {
                     );
 
                     db.warnUser(inviter, toolkit.WarningTypes.TempBan, DateTime.now().plus(inviterPunishment));
-                    db.retractInvites(inviter, 1000);
+                    db.removeUser(user.id);
 
                     inviterPunished = true;
                     if (!lastInviterWarning?.active) {
@@ -60,6 +58,9 @@ module.exports = {
                     }
                 }
             }
+
+            // and finally remove the user, since they were banned
+            db.removeUser(user.id);
 
             let reason = '';
             if (interaction.options.getString('reason')) {

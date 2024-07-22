@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits} = require('discord.js');
 const db = require('../../db');
 const config = require('../../config.json');
 
@@ -10,8 +10,13 @@ module.exports = {
     async execute(interaction) {
         if (interaction.guildId === config.guildId) {
             const user = interaction.user.id;
+            const inviterMember = await interaction.guild.members.fetch(user);
+            const inviterIsAdmin = inviterMember.permissions.has(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles);
 
-            if (db.userExists(user)) {
+            if (inviterIsAdmin) {
+                await interaction.reply({ content: `You are an admin. You can always invite.`, ephemeral: true });
+            }
+            else if (db.userExists(user)) {
                 const userInvitesCount = db.getInviteCount(user);
 
                 await interaction.reply({ content: `You have ${userInvitesCount}/10 invites left.`, ephemeral: true });

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits} = require('discord.js');
 const db = require('../../db');
 const config = require('../../config.json');
 
@@ -18,11 +18,17 @@ module.exports = {
 
         const inviteeMember = await interaction.guild.members.fetch(invitee.id);
 
+        const inviterMember = await interaction.guild.members.fetch(interaction.user.id);
+        const inviterIsAdmin = inviterMember.permissions.has(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles);
+
         if (!inviteeMember || db.userExists(invitee.id) || inviteeMember.roles.cache.has(config.verifiedMemberRoleId)) {
             await interaction.reply({ content: `<@!${invitee.id}> is not part of the server or is already verified.`, ephemeral: true, allowedMentions: { users: [] } });
         }
-        else if (db.userExists(inviter.id)) {
-            const userInvitesAvailable = db.getInviteCount(interaction.user.id);
+        else if (db.userExists(inviter.id) || inviterIsAdmin) {
+            let userInvitesAvailable = db.getInviteCount(interaction.user.id);
+            if (inviterIsAdmin) {
+                userInvitesAvailable = 1000;
+            }
 
             if (db.lastUserWarning(inviteeMember.id)?.active) {
                 await interaction.reply({ content: `<@!${invitee.id}> has an active Timeout or Ban and cannot be invited.`, ephemeral: true, allowedMentions: { users: [] } });

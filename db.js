@@ -252,15 +252,33 @@ function inviteUser(inviter, invitee) {
 
 /* DB aggregate functions */
 function weeklyDigest() {
-    const activity = db.prepare('SELECT * FROM user_activity WHERE weeks_present > 0;')
-        .all()
-        .map(el => {
-            el.weekly_messages = el.messages_created - (el.messages_deleted / 2);
-            el.avg_message_rate = el.weekly_messages / 7;
-            return el;
-        });
+    let activity;
+    db.transaction(() => {
+        activity = db.prepare('SELECT * FROM user_activity WHERE weeks_present > 0;')
+            .all()
+            .map(el => {
+                el.weekly_messages = el.messages_created - (el.messages_deleted / 2);
+                el.avg_message_rate = el.weekly_messages / 7;
+                return el;
+            });
 
-    db.prepare('UPDATE user_activity SET messages_created = 0, messages_deleted = 0, weeks_present = weeks_present + 1').run();
+        // Check who meets the requirement for receiving an invite
+        const receiveInvite = [];
+        for (let user of activity) {
+            if (user.avg_message_rate >= config.inviteAwardThreashold) {
+                receiveInvite.push(user.usr_id);
+            }
+        }
+
+        // award qualifying users with invites
+        db.prepare(`
+            UPDATE user_invite_count
+            SET invites = invites + 1
+            WHERE invites < ? AND usr_id in (${receiveInvite.map(() => '?').join(',')})
+        `).run(config.maxInvites, ...receiveInvite);
+
+        db.prepare('UPDATE user_activity SET messages_created = 0, messages_deleted = 0, weeks_present = weeks_present + 1').run();
+    })();
 
     return activity;
 }
