@@ -52,15 +52,15 @@ module.exports = {
                 let manualTimeSet = false;
                 if (interaction.options.getInteger('hours')) {
                     timeoutTime.hours = interaction.options.getInteger('hours');
-                    manualTimeSet = true
+                    manualTimeSet = true;
                 }
                 if (interaction.options.getInteger('days')) {
                     timeoutTime.days = interaction.options.getInteger('days');
-                    manualTimeSet = true
+                    manualTimeSet = true;
                 }
                 if (interaction.options.getInteger('months')) {
                     timeoutTime.months = interaction.options.getInteger('months');
-                    manualTimeSet = true
+                    manualTimeSet = true;
                 }
                 if (!manualTimeSet) {
                     timeoutTime.hours = 6;

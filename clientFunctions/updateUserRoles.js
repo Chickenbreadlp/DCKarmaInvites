@@ -35,7 +35,7 @@ async function updateUserRoles(client) {
             }
 
             await Promise.all(rolePromises);
-            if (rolePromises.length > 0) console.log(`Updated ${users.length} to have/not have the member role according to their status.`);
+            if (rolePromises.length > 0) console.log(`Updated ${rolePromises.length} to have/not have the member role according to their status.`);
         }
         else {
             console.error('Verified role does not exist!');
