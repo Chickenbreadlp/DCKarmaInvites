@@ -24,8 +24,9 @@ module.exports = {
 
         db.warnUser(user.id, toolkit.WarningTypes.PermBan);
 
+        let lastTimeout, inviter, inviterPunished = false;
         if (db.userExists(user.id)) {
-            const lastTimeout = db.lastUserWarning(user.id);
+            lastTimeout = db.lastUserWarning(user.id);
 
             if (!lastTimeout?.active) {
                 const timeoutMember = await interaction.guild.members.fetch(user.id);
@@ -33,7 +34,6 @@ module.exports = {
             }
 
             const inviter = db.whoInvited(user.id);
-            let inviterPunished = false;
             if (inviter) {
                 const lastInviterWarning = db.lastUserWarning(inviter);
 
