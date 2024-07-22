@@ -239,13 +239,15 @@ function retractInvites(userId, invites = 1) {
     }
 }
 
-function inviteUser(inviter, invitee) {
+function inviteUser(invitee, inviter) {
     db.transaction(() => {
-        retractInvites(inviter);
-        db.prepare(`
-            INSERT INTO user_invites(inviter, invitee)
-            VALUES (?, ?)
-        `).run(inviter, invitee);
+        if (inviter) {
+            retractInvites(inviter);
+            db.prepare(`
+                INSERT INTO user_invites(inviter, invitee)
+                VALUES (?, ?)
+            `).run(inviter, invitee);
+        }
         newUser(invitee);
     })();
 }

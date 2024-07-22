@@ -35,7 +35,7 @@ module.exports = {
             }
             else if (!isNaN(userInvitesAvailable) && userInvitesAvailable > 0) {
                 await inviteeMember.roles.add(config.verifiedMemberRoleId);
-                db.inviteUser(inviter.id, invitee.id);
+                db.inviteUser(invitee.id, inviterIsAdmin ? false : inviter.id);
                 await interaction.reply({ content: `<@!${inviter.id}> has invited <@!${invitee.id}> to become verified.`, allowedMentions: { users: [] } });
             }
             else {
