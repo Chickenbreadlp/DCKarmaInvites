@@ -84,7 +84,7 @@ function removeUser(userId) {
     db.transaction(() => {
         db.prepare('DELETE FROM user_activity WHERE usr_id = ?').run(userId);
         db.prepare('DELETE FROM user_invite_count WHERE usr_id = ?').run(userId);
-        db.prepare('DELETE FROM user_invites WHERE invitee = ?').run(userId, userId);
+        db.prepare('DELETE FROM user_invites WHERE invitee = ?').run(userId);
     })();
 }
 function batchRemoveUsers(userIds) {
