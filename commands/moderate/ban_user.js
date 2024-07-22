@@ -22,6 +22,8 @@ module.exports = {
     async execute(interaction) {
         const user = interaction.options.getUser('user');
 
+        db.warnUser(user.id, toolkit.WarningTypes.PermBan);
+
         if (db.userExists(user.id)) {
             const lastTimeout = db.lastUserWarning(user.id);
 
@@ -29,8 +31,6 @@ module.exports = {
                 const timeoutMember = await interaction.guild.members.fetch(user.id);
                 timeoutMember.roles.remove(config.verifiedMemberRoleId);
             }
-
-            db.warnUser(user.id, toolkit.WarningTypes.PermBan);
 
             const inviter = db.whoInvited(user.id);
             let inviterPunished = false;
@@ -61,24 +61,21 @@ module.exports = {
 
             // and finally remove the user, since they were banned
             db.removeUser(user.id);
-
-            let reason = '';
-            if (interaction.options.getString('reason')) {
-                reason = '\nReason:\n> ' + interaction.options.getString('reason');
-            }
-            await interaction.reply(`<@!${user.id}> has been banned from being a verified member.${reason}`);
-
-            const followUp = ['Also note:'];
-            if (lastTimeout?.active)
-                followUp.push('- They previously had a timeout or temporary ban, which has now been overwritten with this permanent ban');
-            if (inviterPunished)
-                followUp.push(`- They were invited by <@!${inviter}>, who has received a temporary ban (means they can be re-invited after a week, but don't regain their member status automatically)`);
-
-            if (followUp.length > 1)
-                await interaction.followUp({content: followUp.join('\n'), ephemeral: true});
         }
-        else {
-            await interaction.reply({ content: `<@!${user.id}> currently not member`, ephemeral: true, allowedMentions: { users: [] } });
+
+        let reason = '';
+        if (interaction.options.getString('reason')) {
+            reason = '\nReason:\n> ' + interaction.options.getString('reason');
         }
+        await interaction.reply(`<@!${user.id}> has been banned from being a verified member.${reason}`);
+
+        const followUp = ['Also note:'];
+        if (lastTimeout?.active)
+            followUp.push('- They previously had a timeout or temporary ban, which has now been overwritten with this permanent ban');
+        if (inviterPunished)
+            followUp.push(`- They were invited by <@!${inviter}>, who has received a temporary ban (means they can be re-invited after a week, but don't regain their member status automatically)`);
+
+        if (followUp.length > 1)
+            await interaction.followUp({content: followUp.join('\n'), ephemeral: true});
     },
 };
