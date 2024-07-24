@@ -73,8 +73,9 @@ module.exports = {
                     await timeoutMember.roles.remove(config.verifiedMemberRoleId).catch();
                 }
 
+                const timeoutReason = interaction.options.getString('reason');
                 const newUntil = DateTime.now().plus(finalTimeoutTime);
-                db.warnUser(user.id, toolkit.WarningTypes.TempTimeout, newUntil);
+                db.warnUser(user.id, toolkit.WarningTypes.TempTimeout, timeoutReason, newUntil);
                 // make sure all their invites get removed
                 db.retractInvites(user.id, 1000);
 
@@ -92,7 +93,7 @@ module.exports = {
                             }
                         );
 
-                        db.warnUser(inviter, toolkit.WarningTypes.TempTimeout, DateTime.now().plus(inviterPunishment));
+                        db.warnUser(inviter, toolkit.WarningTypes.TempTimeout, 'Invited someone who got timed-out', DateTime.now().plus(inviterPunishment));
                         db.retractInvites(inviter, 1000);
 
                         inviterPunished = true;
@@ -106,8 +107,8 @@ module.exports = {
                 }
 
                 let reason = '';
-                if (interaction.options.getString('reason')) {
-                    reason = '\nReason:\n> ' + interaction.options.getString('reason');
+                if (timeoutReason) {
+                    reason = '\nReason:\n> ' + timeoutReason;
                 }
                 await interaction.reply(`<@!${user.id}> has been timed out from being a verified member.${reason}`);
 

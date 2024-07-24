@@ -21,8 +21,9 @@ module.exports = {
         ),
     async execute(interaction) {
         const user = interaction.options.getUser('user');
+        const banReason = interaction.options.getString('reason');
 
-        db.warnUser(user.id, toolkit.WarningTypes.PermBan);
+        db.warnUser(user.id, toolkit.WarningTypes.PermBan, banReason);
 
         let lastTimeout, inviter, inviterPunished = false;
         if (db.userExists(user.id)) {
@@ -47,7 +48,7 @@ module.exports = {
                         }
                     );
 
-                    db.warnUser(inviter, toolkit.WarningTypes.TempBan, DateTime.now().plus(inviterPunishment));
+                    db.warnUser(inviter, toolkit.WarningTypes.TempBan, 'Invited someone who got banned', DateTime.now().plus(inviterPunishment));
                     db.removeUser(user.id);
 
                     inviterPunished = true;
@@ -64,8 +65,8 @@ module.exports = {
         }
 
         let reason = '';
-        if (interaction.options.getString('reason')) {
-            reason = '\nReason:\n> ' + interaction.options.getString('reason');
+        if (banReason) {
+            reason = '\nReason:\n> ' + banReason;
         }
         await interaction.reply(`<@!${user.id}> has been banned from being a verified member.${reason}`);
 

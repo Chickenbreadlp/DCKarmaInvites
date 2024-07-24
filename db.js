@@ -6,11 +6,21 @@ const config = require('./config');
 const Database = require('better-sqlite3');
 const dbIsNew = !fs.existsSync('data.db');
 const db = new Database('data.db');
+const dbVersion = 0.1;
 
 function setupDB() {
     if (dbIsNew) {
         db.pragma('journal_mode = WAL');
         db.pragma('auto_vacuum = FULL');
+
+        /* Generate user activity Table */
+        db.prepare(`CREATE TABLE metadata(
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                meta_key    TEXT    DEFAULT '' NOT NULL,
+                value       INTEGER DEFAULT 0  NOT NULL
+            )`).run();
+        const metaInsert = db.prepare('INSERT INTO metadata(meta_key, value) VALUES (?, ?)');
+        metaInsert.run('DB_Version', dbVersion);
 
         /* Generate user activity Table */
         db.prepare(`CREATE TABLE user_activity(
@@ -39,8 +49,56 @@ function setupDB() {
                 id     INTEGER PRIMARY KEY AUTOINCREMENT,
                 usr_id TEXT    NOT NULL,
                 type   TEXT    NOT NULL,
+                reason TEXT,
                 until  DATE
             )`).run();
+
+        db.prepare(`CREATE TABLE user_warnings_history(
+                id     INTEGER PRIMARY KEY AUTOINCREMENT,
+                usr_id TEXT    NOT NULL,
+                type   TEXT    NOT NULL,
+                from   DATE    NOT NULL,
+                reason TEXT,
+                until  DATE
+            )`).run();
+    }
+    else {
+        let currentDB = 0;
+        try {
+            currentDB = db.prepare(`SELECT value FROM metadata WHERE meta_key = ?`).pluck(true).get('DB_Version');
+        }
+        catch (e) {}
+
+        console.log(`Loaded DB v${currentDB}`);
+
+        if (currentDB !== dbVersion) {
+            console.log(`Service expects DB v${dbVersion}. Upgrading...`);
+            switch (currentDB) {
+                case 0: {
+                    db.prepare(`CREATE TABLE metadata(
+                            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                            meta_key    TEXT    DEFAULT '' NOT NULL,
+                            value       INTEGER DEFAULT 0  NOT NULL
+                        )`).run();
+                    db.prepare('INSERT INTO metadata(meta_key, value) VALUES (?, ?)').run('DB_Version', dbVersion);
+
+                    // Since this DB is DB v0, run this:
+                    db.prepare(`ALTER TABLE user_warnings ADD COLUMN reason TEXT`);
+
+                    db.prepare(`CREATE TABLE user_warnings_history(
+                            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+                            usr_id TEXT    NOT NULL,
+                            type   TEXT    NOT NULL,
+                            from   DATE    NOT NULL,
+                            reason TEXT,
+                            until  DATE
+                        )`).run();
+                    break;
+                }
+            }
+
+            db.prepare('UPDATE metadata SET value = ? WHERE meta_key = ?').run(dbVersion, 'DB_Version');
+        }
     }
 }
 function valuePresent(tableName, column, value) {
@@ -115,19 +173,21 @@ function whoInvited(userId) {
 }
 
 /* Warning System */
-function warnUser(userId, warningType, until) {
+function warnUser(userId, warningType, reason, until) {
     if (Object.values(toolkit.WarningTypes).includes(warningType)) {
         if (warningType.startsWith('TEMP') && until) {
-            db.prepare(`INSERT INTO user_warnings(usr_id, type, until) VALUES (?, ?, ?)`).run(
+            db.prepare(`INSERT INTO user_warnings(usr_id, type, reason, until) VALUES (?, ?, ?, ?)`).run(
                 userId,
                 warningType,
+                reason,
                 until.toISO()
             )
         }
         else if (warningType.startsWith('PERM')) {
-            db.prepare(`INSERT INTO user_warnings(usr_id, type) VALUES ( ?, ?)`).run(
+            db.prepare(`INSERT INTO user_warnings(usr_id, type, reason) VALUES (?, ?, ?)`).run(
                 userId,
-                warningType
+                warningType,
+                reason
             )
         }
     }
@@ -175,7 +235,7 @@ function lastUserWarning(userId, warningType) {
 
     return results;
 }
-function getAllActiveTimeouts() {
+function getAllUniqueActiveTimeouts() {
     const mapper = createDateTimeMapper('until');
     return db.prepare(`
         SELECT usr_id, until
@@ -204,6 +264,18 @@ function getAllLastWarnings() {
         `)
         .all()
         .map(mapper);
+}
+function getAllActiveWarnings(page = 0, skipTotal = false) {
+    const mapper = createDateTimeMapper('until');
+    const now = DateTime.now();
+
+    let total = null;
+    if (!skipTotal) total = db.prepare(`SELECT COUNT(*) FROM user_warnings`).pluck(true).get();
+    const warnings = db.prepare(`SELECT * FROM user_warnings LIMIT 50 OFFSET ?`)
+        .all(page * 50)
+        .map(mapper);
+
+    return { total, warnings };
 }
 
 /* Invite functions */
@@ -299,8 +371,9 @@ module.exports = {
     warnUser,
     clearUserWarnings,
     lastUserWarning,
-    getAllActiveTimeouts,
+    getAllUniqueActiveTimeouts,
     getAllLastWarnings,
+    getAllActiveWarnings,
     getInviteCount,
     awardInvites,
     retractInvites,

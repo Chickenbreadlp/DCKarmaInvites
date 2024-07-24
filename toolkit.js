@@ -18,7 +18,7 @@ function hashData(data) {
  * @param currentMembers { string[] } List of currently active member IDs
  */
 function commitMemberChanges(db, currentMembers) {
-    const timeouts = db.getAllActiveTimeouts().filter(timeout => !currentMembers.includes(timeout.usr_id)).map(timeout => timeout.usr_id);
+    const timeouts = db.getAllUniqueActiveTimeouts().filter(timeout => !currentMembers.includes(timeout.usr_id)).map(timeout => timeout.usr_id);
     currentMembers.push(...timeouts);
 
     const previousUsers = db.getKnownUserIds();
