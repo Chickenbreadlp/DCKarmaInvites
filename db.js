@@ -57,7 +57,7 @@ function setupDB() {
                 id     INTEGER PRIMARY KEY AUTOINCREMENT,
                 usr_id TEXT    NOT NULL,
                 type   TEXT    NOT NULL,
-                from   DATE    NOT NULL,
+                start  DATE    NOT NULL,
                 reason TEXT,
                 until  DATE
             )`).run();
@@ -89,7 +89,7 @@ function setupDB() {
                             id     INTEGER PRIMARY KEY AUTOINCREMENT,
                             usr_id TEXT    NOT NULL,
                             type   TEXT    NOT NULL,
-                            from   DATE    NOT NULL,
+                            start  DATE    NOT NULL,
                             reason TEXT,
                             until  DATE
                         )`).run();
@@ -265,14 +265,16 @@ function getAllLastWarnings() {
         .all()
         .map(mapper);
 }
-function getAllActiveWarnings(page = 0, skipTotal = false) {
+function getAllActiveWarnings(only = null, page = 0, skipTotal = false) {
     const mapper = createDateTimeMapper('until');
-    const now = DateTime.now();
+    let onlyFilter = '';
+    if (only === 'temp') onlyFilter = `WHERE type != '${toolkit.WarningTypes.PermBan}'`;
+    else if (only === 'perm') onlyFilter  = `WHERE type == '${toolkit.WarningTypes.PermBan}'`;
 
     let total = null;
-    if (!skipTotal) total = db.prepare(`SELECT COUNT(*) FROM user_warnings`).pluck(true).get();
-    const warnings = db.prepare(`SELECT * FROM user_warnings LIMIT 50 OFFSET ?`)
-        .all(page * 50)
+    if (!skipTotal) total = db.prepare(`SELECT COUNT(*) FROM user_warnings ${onlyFilter}`).pluck(true).get();
+    const warnings = db.prepare(`SELECT * FROM user_warnings ${onlyFilter} LIMIT ? OFFSET ?`)
+        .all(config.warningPageSize, page * config.warningPageSize)
         .map(mapper);
 
     return { total, warnings };

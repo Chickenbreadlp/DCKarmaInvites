@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ComponentType  } = require('discord.js');
 const db = require('../../db');
 const toolkit = require('../../toolkit');
+const config = require('../../config.json');
 
 function warningStringMapper(row) {
     let reasonStr = '', untilStr = '', typeStr = '';
@@ -21,13 +22,22 @@ module.exports = {
         .setName('active_warnings')
         .setDescription('Returns a list of all the currently active warnings (limits to 50 per message)')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles)
-        .setDMPermission(false),
+        .setDMPermission(false)
+        .addStringOption(option =>
+            option.setName('only')
+                .setDescription('Only shows temporary warnings')
+                .addChoices(
+                    { name: 'Temporary', value: 'temp' },
+                    { name: 'Permanent', value: 'perm' }
+                )
+        ),
     async execute(interaction) {
-        let warnings = db.getAllActiveWarnings();
+        const only = interaction.options.getString('only');
+        let warnings = db.getAllActiveWarnings(only);
         let warningStr = warnings.warnings.map(warningStringMapper).join('');
-        let maxPage = Math.floor(warnings.total-1 / 50);
 
         if (warnings.total > 0) {
+            let maxPage = Math.floor((warnings.total-1) / config.warningPageSize);
             const buttons = [
                 new ButtonBuilder()
                     .setCustomId('prev')
@@ -55,9 +65,9 @@ module.exports = {
                 if (btn.customId === 'next') page++;
                 else if (btn.customId === 'prev') page--;
 
-                warnings = db.getAllActiveWarnings(page);
+                warnings = db.getAllActiveWarnings(only, page);
                 warningStr = warnings.warnings.map(warningStringMapper).join('');
-                maxPage = Math.floor(warnings.total-1 / 50);
+                maxPage = Math.floor((warnings.total-1) / config.warningPageSize);
 
                 if (page <= 0) actionRow = new ActionRowBuilder().addComponents(buttons[1]);
                 else if (page >= maxPage) actionRow = new ActionRowBuilder().addComponents(buttons[0]);
@@ -70,7 +80,11 @@ module.exports = {
             });
         }
         else {
-            await interaction.reply({ content: '## Active Warnings\n**No Warnings currently active**', ephemeral: true });
+            let typeStr = '';
+            if (only === 'temp') typeStr = '__temporary__ ';
+            if (only === 'perm') typeStr = '__permanent__ ';
+
+            await interaction.reply({ content: `## Active Warnings\n**No ${typeStr}Warnings currently active**`, ephemeral: true });
         }
     },
 };
