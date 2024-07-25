@@ -22,18 +22,22 @@ module.exports = {
     async execute(interaction) {
         const user = interaction.options.getUser('user');
         const banReason = interaction.options.getString('reason');
+        const userExists = db.userExists(user.id);
 
-        db.warnUser(user.id, toolkit.WarningTypes.PermBan, banReason);
-
-        let lastTimeout, inviter, inviterPunished = false;
-        if (db.userExists(user.id)) {
+        let lastTimeout;
+        if (userExists) {
             lastTimeout = db.lastUserWarning(user.id);
 
             if (!lastTimeout?.active) {
                 const timeoutMember = await interaction.guild.members.fetch(user.id);
                 timeoutMember.roles.remove(config.verifiedMemberRoleId);
             }
+        }
 
+        db.warnUser(user.id, toolkit.WarningTypes.PermBan, banReason);
+
+        let inviter, inviterPunished = false;
+        if (userExists) {
             const inviter = db.whoInvited(user.id);
             if (inviter) {
                 const lastInviterWarning = db.lastUserWarning(inviter);
@@ -49,7 +53,7 @@ module.exports = {
                     );
 
                     db.warnUser(inviter, toolkit.WarningTypes.TempBan, 'Invited someone who got banned', DateTime.now().plus(inviterPunishment));
-                    db.removeUser(user.id);
+                    db.removeUser(inviter);
 
                     inviterPunished = true;
                     if (!lastInviterWarning?.active) {

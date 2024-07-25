@@ -1,10 +1,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const toolkit = require('./toolkit');
 const config = require('./config');
 const db = require('./db.js');
 const clock = require('./clock.js');
-const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 
 db.setupDB();
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages] });
@@ -42,6 +41,6 @@ for (const file of eventFiles) {
     }
 }
 
-client.login(config.token).then(r => {
+client.login(config.token).then(() => {
     clock.start(client);
 });

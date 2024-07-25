@@ -79,6 +79,8 @@ module.exports = {
                 // make sure all their invites get removed
                 db.retractInvites(user.id, 1000);
 
+                if (lastTimeout?.history_id) db.updateHistoryUntil(lastTimeout?.history_id, DateTime.now());
+
                 const inviter = db.whoInvited(user.id);
                 let inviterPunished = false;
                 if (inviter) {

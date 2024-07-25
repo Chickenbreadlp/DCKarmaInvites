@@ -6,7 +6,7 @@ const config = require('./config');
 const Database = require('better-sqlite3');
 const dbIsNew = !fs.existsSync('data.db');
 const db = new Database('data.db');
-const dbVersion = 0.1;
+const dbVersion = 0.2;
 
 function setupDB() {
     if (dbIsNew) {
@@ -46,14 +46,15 @@ function setupDB() {
 
         /* Generate user blacklist/timeout Table */
         db.prepare(`CREATE TABLE user_warnings(
-                id     INTEGER PRIMARY KEY AUTOINCREMENT,
-                usr_id TEXT    NOT NULL,
-                type   TEXT    NOT NULL,
-                reason TEXT,
-                until  DATE
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                usr_id      TEXT    NOT NULL,
+                type        TEXT    NOT NULL,
+                reason      TEXT,
+                until       DATE,
+                history_id  INTEGER
             )`).run();
 
-        db.prepare(`CREATE TABLE user_warnings_history(
+        db.prepare(`CREATE TABLE user_warning_history(
                 id     INTEGER PRIMARY KEY AUTOINCREMENT,
                 usr_id TEXT    NOT NULL,
                 type   TEXT    NOT NULL,
@@ -73,19 +74,21 @@ function setupDB() {
 
         if (currentDB !== dbVersion) {
             console.log(`Service expects DB v${dbVersion}. Upgrading...`);
-            switch (currentDB) {
-                case 0: {
-                    db.prepare(`CREATE TABLE metadata(
+            if (currentDB < 0.1) {
+                db.prepare(`CREATE TABLE metadata(
                             id          INTEGER PRIMARY KEY AUTOINCREMENT,
                             meta_key    TEXT    DEFAULT '' NOT NULL,
                             value       INTEGER DEFAULT 0  NOT NULL
                         )`).run();
-                    db.prepare('INSERT INTO metadata(meta_key, value) VALUES (?, ?)').run('DB_Version', dbVersion);
+                db.prepare('INSERT INTO metadata(meta_key, value) VALUES (?, ?)').run('DB_Version', dbVersion).run();
 
-                    // Since this DB is DB v0, run this:
-                    db.prepare(`ALTER TABLE user_warnings ADD COLUMN reason TEXT`);
+                db.prepare(`ALTER TABLE user_warnings ADD COLUMN reason TEXT`).run();
+            }
+            if (currentDB < 0.2) {
+                db.prepare(`ALTER TABLE user_warnings ADD COLUMN history_id INTEGER`).run();
 
-                    db.prepare(`CREATE TABLE user_warnings_history(
+                db.prepare('DROP TABLE IF EXISTS user_warnings_history').run();
+                db.prepare(`CREATE TABLE user_warning_history(
                             id     INTEGER PRIMARY KEY AUTOINCREMENT,
                             usr_id TEXT    NOT NULL,
                             type   TEXT    NOT NULL,
@@ -93,8 +96,6 @@ function setupDB() {
                             reason TEXT,
                             until  DATE
                         )`).run();
-                    break;
-                }
             }
 
             db.prepare('UPDATE metadata SET value = ? WHERE meta_key = ?').run(dbVersion, 'DB_Version');
@@ -173,26 +174,53 @@ function whoInvited(userId) {
 }
 
 /* Warning System */
-function warnUser(userId, warningType, reason, until) {
+function warnUser(userId, warningType, reason, until = null) {
     if (Object.values(toolkit.WarningTypes).includes(warningType)) {
+        const parameters = [
+            userId,
+            warningType,
+            reason
+        ];
+
         if (warningType.startsWith('TEMP') && until) {
-            db.prepare(`INSERT INTO user_warnings(usr_id, type, reason, until) VALUES (?, ?, ?, ?)`).run(
-                userId,
-                warningType,
-                reason,
-                until.toISO()
-            )
+            parameters.push(until.toISO());
+
+            const { lastInsertRowid } = db.prepare(`
+                    INSERT INTO user_warning_history(usr_id, type, reason, until, start)
+                    VALUES (?,?,?,?,?)
+                `).run(...parameters, DateTime.now().toISO());
+
+            db.prepare(`
+                    INSERT INTO user_warnings(usr_id, type, reason, until, history_id)
+                    VALUES (?, ?, ?, ?, ?)
+                `).run(...parameters, lastInsertRowid);
         }
         else if (warningType.startsWith('PERM')) {
-            db.prepare(`INSERT INTO user_warnings(usr_id, type, reason) VALUES (?, ?, ?)`).run(
-                userId,
-                warningType,
-                reason
-            )
+            const { lastInsertRowid } = db.prepare(`
+                    INSERT INTO user_warning_history(usr_id, type, reason, start)
+                    VALUES (?,?,?,?)
+                `).run(...parameters, DateTime.now().toISO());
+
+            db.prepare(`
+                    INSERT INTO user_warnings(usr_id, type, reason, history_id)
+                    VALUES (?, ?, ?, ?)
+                `).run(...parameters, lastInsertRowid)
         }
     }
 }
 function clearUserWarnings(userId, warningType) {
+    const lastWarning = lastUserWarning(userId, warningType);
+    if (lastWarning?.active && lastWarning?.history_id) {
+        db.prepare(`
+                UPDATE user_warning_history
+                SET until = ?
+                WHERE id = ?
+            `).run(
+                DateTime.now().toISO(),
+                lastWarning?.history_id
+            );
+    }
+
     if (warningType) {
         db.prepare(`DELETE FROM user_warnings WHERE usr_id = ? AND type = ?`).run(userId, warningType);
     }
@@ -205,7 +233,7 @@ function lastUserWarning(userId, warningType) {
 
     if (Object.values(toolkit.WarningTypes).includes(warningType)) {
         results = db.prepare(`
-            SELECT type, until
+            SELECT type, until, reason, history_id
             FROM user_warnings
             WHERE usr_id = ? AND type = ?
             ORDER BY until DESC NULLS FIRST
@@ -214,7 +242,7 @@ function lastUserWarning(userId, warningType) {
     }
     else {
         results = db.prepare(`
-            SELECT type, until
+            SELECT type, until, reason, history_id
             FROM user_warnings
             WHERE usr_id = ?
             ORDER BY until DESC NULLS FIRST
@@ -265,19 +293,64 @@ function getAllLastWarnings() {
         .all()
         .map(mapper);
 }
-function getAllActiveWarnings(only = null, page = 0, skipTotal = false) {
+function getAllActiveWarnings(only = null, page = 0) {
     const mapper = createDateTimeMapper('until');
     let onlyFilter = '';
     if (only === 'temp') onlyFilter = `WHERE type != '${toolkit.WarningTypes.PermBan}'`;
     else if (only === 'perm') onlyFilter  = `WHERE type == '${toolkit.WarningTypes.PermBan}'`;
 
-    let total = null;
-    if (!skipTotal) total = db.prepare(`SELECT COUNT(*) FROM user_warnings ${onlyFilter}`).pluck(true).get();
-    const warnings = db.prepare(`SELECT * FROM user_warnings ${onlyFilter} LIMIT ? OFFSET ?`)
-        .all(config.warningPageSize, page * config.warningPageSize)
+    let total = db.prepare(`SELECT COUNT(*) FROM user_warnings ${onlyFilter}`).pluck(true).get();
+    const warnings = db.prepare(`
+            SELECT *
+            FROM user_warnings
+            ${onlyFilter}
+            ORDER BY until DESC NULLS LAST
+            LIMIT ? OFFSET ?
+        `).all(config.warningPageSize, page * config.warningPageSize)
         .map(mapper);
 
     return { total, warnings };
+}
+
+function updateHistoryUntil(id, until) {
+    db.prepare(`
+            UPDATE user_warning_history
+            SET until = ?
+            WHERE id = ?
+        `).run(until.toISO(), id);
+}
+function getWarningHistory(only = null, page = 0) {
+    const mapper = createDateTimeMapper('start', 'until');
+    let onlyFilter = '';
+    if (only === 'temp') onlyFilter = `WHERE type != '${toolkit.WarningTypes.PermBan}'`;
+    else if (only === 'perm') onlyFilter  = `WHERE type == '${toolkit.WarningTypes.PermBan}'`;
+
+    const total = db.prepare(`SELECT COUNT(*) FROM user_warning_history ${onlyFilter}`).pluck(true).get();
+    const warnings = db.prepare(`
+            SELECT *
+            FROM user_warning_history
+            ${onlyFilter}
+            ORDER BY start DESC
+            LIMIT ? OFFSET ?
+        `).all(config.warningPageSize, page * config.warningPageSize)
+        .map(mapper);
+
+    return { total, warnings };
+}
+function shortenHistory() {
+    const total = db.prepare(`SELECT COUNT(*) FROM user_warning_history WHERE until IS NOT NULL`).pluck(true).get();
+    if (total > config.maxHistoryLength) {
+        const warnings = db.prepare(`
+                SELECT id
+                FROM user_warning_history
+                WHERE until IS NOT NULL
+                ORDER BY start ASC
+                LIMIT ?
+            `).all(total - config.maxHistoryLength);
+        const questionList = warnings.map(() => '?').join(',');
+
+        db.prepare(`DELETE FROM user_warning_history WHERE id in (${questionList})`).run(...warnings.map(row => row.id));
+    }
 }
 
 /* Invite functions */
@@ -363,22 +436,32 @@ module.exports = {
     setupDB,
     userExists,
     getKnownUserIds,
+
     newUser,
     batchCreateUsers,
     removeUser,
     batchRemoveUsers,
+
     userMessageCreated,
     userMessageDeleted,
     whoInvited,
+
     warnUser,
     clearUserWarnings,
+
     lastUserWarning,
     getAllUniqueActiveTimeouts,
     getAllLastWarnings,
     getAllActiveWarnings,
+
+    updateHistoryUntil,
+    getWarningHistory,
+    shortenHistory,
+
     getInviteCount,
     awardInvites,
     retractInvites,
     inviteUser,
+
     weeklyDigest
 }

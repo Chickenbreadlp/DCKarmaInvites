@@ -18,6 +18,7 @@ function start(client) {
             if (today.weekday === 7) {
                 console.log(db.weeklyDigest());
             }
+            db.shortenHistory();
 
             lastDay = today.day;
         }

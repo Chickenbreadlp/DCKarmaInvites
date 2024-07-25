@@ -1,26 +1,40 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ComponentType  } = require('discord.js');
+const { DateTime } = require('luxon');
 const db = require('../../db');
 const toolkit = require('../../toolkit');
 const config = require('../../config.json');
 
 function warningStringMapper(row) {
-    let reasonStr = '', untilStr = '', typeStr = '';
+    let reasonStr = '', typeStr = '';
+    let timeStr = `<t:${row.start.toUnixInteger()}>`;
 
     switch (row.type) {
         case toolkit.WarningTypes.TempTimeout: typeStr += '`Timeout`'; break;
         case toolkit.WarningTypes.TempBan: typeStr += '`Temporary Ban`'; break;
         case toolkit.WarningTypes.PermBan: typeStr += '`Ban`'; break;
     }
-    if (row.until) untilStr = ` | <t:${row.until.toUnixInteger()}>`;
     if (row.reason) reasonStr = `\n> ${row.reason}`;
+    if (row.until) {
+        timeStr += ` -> <t:${row.until.toUnixInteger()}>`;
 
-    return `\n- <@!${row.usr_id}> | ${typeStr}${untilStr}${reasonStr}`;
+        if (DateTime.now() < row.until) {
+            timeStr = '⏱ ' + timeStr;
+        }
+        else {
+            timeStr = '✅ ' + timeStr;
+        }
+    }
+    else {
+        timeStr = '⏱ ' + timeStr;
+    }
+
+    return `\n- <@!${row.usr_id}> | ${typeStr} | ${timeStr}${reasonStr}`;
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('active_warnings')
-        .setDescription('Returns a list of all the currently active warnings')
+        .setName('warning_history')
+        .setDescription('Returns a list of all warnings, past or active')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles)
         .setDMPermission(false)
         .addStringOption(option =>
@@ -33,7 +47,7 @@ module.exports = {
         ),
     async execute(interaction) {
         const only = interaction.options.getString('only');
-        let warnings = db.getAllActiveWarnings(only);
+        let warnings = db.getWarningHistory(only);
         let warningStr = warnings.warnings.map(warningStringMapper).join('');
 
         if (warnings.total > 0) {
@@ -52,7 +66,7 @@ module.exports = {
             if (maxPage !== 0) actionRow = new ActionRowBuilder().addComponents(buttons[1]);
 
             const response = await interaction.reply({
-                content: `## Active Warnings\n__**Page: 1/${maxPage+1}**__` + warningStr,
+                content: `## Warning History\n__**Page: 1/${maxPage+1}**__` + warningStr,
                 ephemeral: true,
                 allowedMentions: { users: [] },
                 components: actionRow ? [actionRow] : null
@@ -65,7 +79,7 @@ module.exports = {
                 if (btn.customId === 'next') page++;
                 else if (btn.customId === 'prev') page--;
 
-                warnings = db.getAllActiveWarnings(only, page);
+                warnings = db.getWarningHistory(only, page);
                 warningStr = warnings.warnings.map(warningStringMapper).join('');
                 maxPage = Math.floor((warnings.total-1) / config.warningPageSize);
 
@@ -74,7 +88,7 @@ module.exports = {
                 else actionRow = new ActionRowBuilder().addComponents(...buttons);
 
                 btn.update({
-                    content: `## Active Warnings\n__**Page: ${page+1}/${maxPage+1}**__` + warningStr,
+                    content: `## Warning History\n__**Page: ${page+1}/${maxPage+1}**__` + warningStr,
                     components: [actionRow],
                 });
             });
@@ -84,7 +98,7 @@ module.exports = {
             if (only === 'temp') typeStr = '__temporary__ ';
             if (only === 'perm') typeStr = '__permanent__ ';
 
-            await interaction.reply({ content: `## Active Warnings\n**No ${typeStr}Warnings currently active**`, ephemeral: true });
+            await interaction.reply({ content: `## Warning History\n**No ${typeStr}Warnings on record**`, ephemeral: true });
         }
     },
 };
