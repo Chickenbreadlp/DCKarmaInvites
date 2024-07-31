@@ -75,11 +75,10 @@ module.exports = {
 
                 const timeoutReason = interaction.options.getString('reason');
                 const newUntil = DateTime.now().plus(finalTimeoutTime);
+                db.clearUserWarnings(user.id, toolkit.WarningTypes.TempTimeout);
                 db.warnUser(user.id, toolkit.WarningTypes.TempTimeout, timeoutReason, newUntil);
                 // make sure all their invites get removed
                 db.retractInvites(user.id, 1000);
-
-                if (lastTimeout?.history_id) db.updateHistoryUntil(lastTimeout?.history_id, DateTime.now());
 
                 const inviter = db.whoInvited(user.id);
                 let inviterPunished = false;

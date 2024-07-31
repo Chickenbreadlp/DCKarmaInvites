@@ -6,6 +6,7 @@
   "verifiedMemberRoleId": "[YOUR_MEMBER_ROLE_ID]",
   "maxInvites": 10,
   "inviteAwardThreashold": 3,
-  "warningPageSize": 10,
+  "warningPageSize": 6,
+  "membersPageSize": 10,
   "maxHistoryLength": 300
 }

@@ -120,11 +120,29 @@ function createDateTimeMapper(...columnNames) {
 
 
 /* User functions */
-function userExists(userId) {
-    return db.prepare(`SELECT 1 FROM user_activity WHERE usr_id = ?;`).pluck(true).get(userId) === 1;
-}
 function getKnownUserIds() {
     return db.prepare(`SELECT usr_id FROM user_activity;`).pluck(true).all();
+}
+function getPagedUserList(page = 0) {
+    const total = db.prepare(`SELECT COUNT(*) FROM user_activity`).pluck(true).get();
+    const users = db.prepare(`
+            SELECT a.*, i.inviter
+            FROM user_activity a
+                 LEFT JOIN user_invites i ON a.usr_id = i.invitee
+            LIMIT ? OFFSET ?;
+        `).all(config.membersPageSize, page * config.membersPageSize)
+        .map(el => {
+            el.weekly_messages = el.messages_created - (el.messages_deleted / 2);
+            el.avg_message_rate = el.weekly_messages / 7;
+            el.qualifies_for_invite = el.avg_message_rate >= config.inviteAwardThreashold && el.weeks_present > 0;
+            return el;
+        });
+
+    return { total, users }
+}
+
+function userExists(userId) {
+    return db.prepare(`SELECT 1 FROM user_activity WHERE usr_id = ?;`).pluck(true).get(userId) === 1;
 }
 function newUser(userId) {
     db.transaction(() => {
@@ -266,14 +284,14 @@ function lastUserWarning(userId, warningType) {
 function getAllUniqueActiveTimeouts() {
     const mapper = createDateTimeMapper('until');
     return db.prepare(`
-        SELECT usr_id, until
-        FROM (
             SELECT usr_id, until
-            FROM user_warnings
-            WHERE type = ?
-            ORDER BY until DESC
-        )
-        GROUP BY usr_id
+            FROM (
+                SELECT usr_id, until
+                FROM user_warnings
+                WHERE type = ?
+                ORDER BY until DESC
+            )
+            GROUP BY usr_id
         `)
         .all(toolkit.WarningTypes.TempTimeout)
         .map(mapper)
@@ -299,7 +317,7 @@ function getAllActiveWarnings(only = null, page = 0) {
     if (only === 'temp') onlyFilter = `WHERE type != '${toolkit.WarningTypes.PermBan}'`;
     else if (only === 'perm') onlyFilter  = `WHERE type == '${toolkit.WarningTypes.PermBan}'`;
 
-    let total = db.prepare(`SELECT COUNT(*) FROM user_warnings ${onlyFilter}`).pluck(true).get();
+    const total = db.prepare(`SELECT COUNT(*) FROM user_warnings ${onlyFilter}`).pluck(true).get();
     const warnings = db.prepare(`
             SELECT *
             FROM user_warnings
@@ -436,6 +454,7 @@ module.exports = {
     setupDB,
     userExists,
     getKnownUserIds,
+    getPagedUserList,
 
     newUser,
     batchCreateUsers,
