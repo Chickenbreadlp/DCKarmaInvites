@@ -8,7 +8,7 @@ function userStringMapper(row) {
     if (row.qualifies_for_invite) getsInviteStr = ' | Will receive Invite';
     if (row.inviter !== null) inviteeStr = ` | Invited by <@!${row.inviter}>`;
 
-    return `\n- <@!${row.usr_id}> | Lifetime messages: \`${row.lifetime_messages}\`${getsInviteStr}${inviteeStr}`;
+    return `\n- <@!${row.usr_id}> | Invites: \`${row.invites}\` | Lifetime messages: \`${row.lifetime_messages}\`${getsInviteStr}${inviteeStr}`;
 }
 
 module.exports = {

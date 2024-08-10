@@ -126,9 +126,10 @@ function getKnownUserIds() {
 function getPagedUserList(page = 0) {
     const total = db.prepare(`SELECT COUNT(*) FROM user_activity`).pluck(true).get();
     const users = db.prepare(`
-            SELECT a.*, i.inviter
+            SELECT a.*, i.inviter, c.invites
             FROM user_activity a
                  LEFT JOIN user_invites i ON a.usr_id = i.invitee
+                 LEFT JOIN user_invite_count c ON a.usr_id = c.usr_id
             LIMIT ? OFFSET ?;
         `).all(config.membersPageSize, page * config.membersPageSize)
         .map(el => {
