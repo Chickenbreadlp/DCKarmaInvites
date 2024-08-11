@@ -23,7 +23,7 @@ module.exports = {
         const inviterMember = await interaction.guild.members.fetch(interaction.user.id);
         const inviterIsAdmin = inviterMember.permissions.has(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles);
 
-        if (!inviteeMember || db.userExists(invitee.id) || inviteeMember.roles.cache.has(config.verifiedMemberRoleId)) {
+        if ((!inviteeMember && !inviterIsAdmin) || db.userExists(invitee.id) || inviteeMember.roles.cache.has(config.verifiedMemberRoleId)) {
             await interaction.editReply({ content: `<@!${invitee.id}> is not part of the server or is already verified.`, allowedMentions: { users: [] } });
         }
         else if (db.userExists(inviter.id) || inviterIsAdmin) {
