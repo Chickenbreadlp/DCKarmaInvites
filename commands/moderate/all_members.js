@@ -51,7 +51,7 @@ module.exports = {
                 else if (btn.customId === 'prev') page--;
 
                 members = db.getPagedUserList(page);
-                memberStr = members.warnings.map(userStringMapper).join('');
+                memberStr = members.users.map(userStringMapper).join('');
                 maxPage = Math.floor((members.total-1) / config.membersPageSize);
 
                 if (page <= 0) actionRow = new ActionRowBuilder().addComponents(buttons[1]);
