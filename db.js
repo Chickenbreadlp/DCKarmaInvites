@@ -103,9 +103,7 @@ function setupDB() {
     }
 }
 function valuePresent(tableName, column, value) {
-    const foundValue = db.prepare(`SELECT ${column} FROM ${tableName} WHERE ${column} = ?;`).pluck(true).get(value);
-
-    return value === foundValue;
+    return db.prepare(`SELECT 1 FROM ${tableName} WHERE ${column} = ?;`).pluck(true).get(value) === 1;
 }
 function createDateTimeMapper(...columnNames) {
     return (row) => {
@@ -143,13 +141,15 @@ function getPagedUserList(page = 0) {
 }
 
 function userExists(userId) {
-    return db.prepare(`SELECT 1 FROM user_activity WHERE usr_id = ?;`).pluck(true).get(userId) === 1;
+    return valuePresent('user_activity', 'usr_id', userId);
 }
 function newUser(userId) {
-    db.transaction(() => {
-        db.prepare('INSERT INTO user_activity(usr_id) VALUES (?)').run(userId);
-        db.prepare('INSERT INTO user_invite_count(usr_id) VALUES (?)').run(userId);
-    })();
+    if (!userExists(userId)) {
+        db.transaction(() => {
+            db.prepare('INSERT INTO user_activity(usr_id) VALUES (?)').run(userId);
+            db.prepare('INSERT INTO user_invite_count(usr_id) VALUES (?)').run(userId);
+        })();
+    }
 }
 function batchCreateUsers(userIds) {
     db.transaction(() => {
