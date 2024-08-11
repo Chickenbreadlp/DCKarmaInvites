@@ -50,7 +50,7 @@ module.exports = {
                 if (btn.customId === 'next') page++;
                 else if (btn.customId === 'prev') page--;
 
-                members = db.getWarningHistory(only, page);
+                members = db.getPagedUserList(page);
                 memberStr = members.warnings.map(userStringMapper).join('');
                 maxPage = Math.floor((members.total-1) / config.membersPageSize);
 
