@@ -424,10 +424,14 @@ function weeklyDigest() {
     db.transaction(() => {
         activity = db.prepare('SELECT * FROM user_activity WHERE weeks_present > 0;')
             .all()
-            .map(el => {
-                el.weekly_messages = el.messages_created - (el.messages_deleted / 2);
-                el.avg_message_rate = el.weekly_messages / 7;
-                return el;
+            .filter(row => {
+                const warning = lastUserWarning(row.usr_id);
+                return !warning || !warning.active;
+            })
+            .map(row => {
+                row.weekly_messages = row.messages_created - (row.messages_deleted / 2);
+                row.avg_message_rate = row.weekly_messages / 7;
+                return row;
             });
 
         // Check who meets the requirement for receiving an invite
