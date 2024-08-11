@@ -20,6 +20,7 @@ module.exports = {
                 .setDescription('Reason for why the user was banned')
         ),
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
         const user = interaction.options.getUser('user');
         const banReason = interaction.options.getString('reason');
         const userExists = db.userExists(user.id);
@@ -72,7 +73,7 @@ module.exports = {
         if (banReason) {
             reason = '\nReason:\n> ' + banReason;
         }
-        await interaction.reply(`<@!${user.id}> has been banned from being a verified member.${reason}`);
+        await interaction.editReply(`<@!${user.id}> has been banned from being a verified member.${reason}`);
 
         const followUp = ['Also note:'];
         if (lastTimeout?.active)

@@ -13,6 +13,8 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
+        interaction.deferReply({ ephemeral: true });
+
         const inviter = interaction.user;
         const invitee = interaction.options.getUser('invitee');
 
@@ -22,7 +24,7 @@ module.exports = {
         const inviterIsAdmin = inviterMember.permissions.has(PermissionFlagsBits.ManageGuild | PermissionFlagsBits.ManageRoles);
 
         if (!inviteeMember || db.userExists(invitee.id) || inviteeMember.roles.cache.has(config.verifiedMemberRoleId)) {
-            await interaction.reply({ content: `<@!${invitee.id}> is not part of the server or is already verified.`, ephemeral: true, allowedMentions: { users: [] } });
+            await interaction.editReply({ content: `<@!${invitee.id}> is not part of the server or is already verified.`, allowedMentions: { users: [] } });
         }
         else if (db.userExists(inviter.id) || inviterIsAdmin) {
             let userInvitesAvailable = db.getInviteCount(interaction.user.id);
@@ -31,19 +33,20 @@ module.exports = {
             }
 
             if (db.lastUserWarning(inviteeMember.id)?.active) {
-                await interaction.reply({ content: `<@!${invitee.id}> has an active Timeout or Ban and cannot be invited.`, ephemeral: true, allowedMentions: { users: [] } });
+                await interaction.editReply({ content: `<@!${invitee.id}> has an active Timeout or Ban and cannot be invited.`, allowedMentions: { users: [] } });
             }
             else if (!isNaN(userInvitesAvailable) && userInvitesAvailable > 0) {
                 await inviteeMember.roles.add(config.verifiedMemberRoleId);
                 db.inviteUser(invitee.id, inviterIsAdmin ? false : inviter.id);
-                await interaction.reply({ content: `<@!${inviter.id}> has invited <@!${invitee.id}> to become verified.`, allowedMentions: { users: [] } });
+                await interaction.editReply({ content: `You successfully invited <@!${invitee.id}>!`, allowedMentions: { users: [] }  });
+                interaction.channel.send({ content: `<@!${inviter.id}> has invited <@!${invitee.id}> to become verified.`, allowedMentions: { users: [] } });
             }
             else {
-                await interaction.reply({ content: 'You don\'t have any invites left.', ephemeral: true });
+                await interaction.editReply({ content: 'You don\'t have any invites left.' });
             }
         }
         else {
-            await interaction.reply({ content: 'You must be verified to use this command.', ephemeral: true });
+            await interaction.editReply({ content: 'You must be verified to use this command.' });
         }
     },
 };

@@ -15,6 +15,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
         const user = interaction.options.getUser('user');
         const lastWarning = db.lastUserWarning(user.id);
 
@@ -25,10 +26,10 @@ module.exports = {
                 await member.roles.add(config.verifiedMemberRoleId);
             }
 
-            interaction.reply({ content: `<@!${user.id}> was cleared of any prior warnings.`, allowedMentions: { users: [] } });
+            await interaction.editReply({ content: `<@!${user.id}> was cleared of any prior warnings.`, allowedMentions: { users: [] } });
         }
         else {
-            interaction.reply({ content: `<@!${user.id}> does not currently have an active warning of any type.`, ephemeral: true, allowedMentions: { users: [] } });
+            await interaction.editReply({ content: `<@!${user.id}> does not currently have an active warning of any type.`, allowedMentions: { users: [] } });
         }
     },
 };

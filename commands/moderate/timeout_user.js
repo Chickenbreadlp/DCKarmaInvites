@@ -37,6 +37,7 @@ module.exports = {
                 .setDescription('Reason for why the user was timed out for')
         ),
     async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
         const user = interaction.options.getUser('user');
 
         if (db.userExists(user.id)) {
@@ -111,7 +112,7 @@ module.exports = {
                 if (timeoutReason) {
                     reason = '\nReason:\n> ' + timeoutReason;
                 }
-                await interaction.reply(`<@!${user.id}> has been timed out from being a verified member.${reason}`);
+                await interaction.editReply(`Timeout successful`);
 
                 const followUp = ['Also note:'];
                 if (lastTimeout?.active)
@@ -121,13 +122,15 @@ module.exports = {
 
                 if (followUp.length > 1)
                     await interaction.followUp({content: followUp.join('\n'), ephemeral: true});
+
+                await interaction.channel.send(`<@!${user.id}> has been timed out from being a verified member.${reason}\``);
             }
             else {
-                await interaction.reply({content: `<@!${user.id}> already has an active warning of a different type.`, ephemeral: true, allowedMentions: { users: [] } });
+                await interaction.editReply({content: `<@!${user.id}> already has an active warning of a different type.`, allowedMentions: { users: [] } });
             }
         }
         else {
-            await interaction.reply({ content: `<@!${user.id}> currently not member`, ephemeral: true, allowedMentions: { users: [] } });
+            await interaction.editReply({ content: `<@!${user.id}> currently not member`, allowedMentions: { users: [] } });
         }
     },
 };
