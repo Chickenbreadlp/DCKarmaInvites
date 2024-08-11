@@ -13,7 +13,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
-        interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: true });
 
         const inviter = interaction.user;
         const invitee = interaction.options.getUser('invitee');
