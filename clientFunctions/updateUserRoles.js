@@ -21,9 +21,7 @@ async function updateUserRoles(client) {
                             );
                         }
                     }
-                    catch (e) {
-                        console.warn(`User with ID ${warning.usr_id} no longer present in server.`);
-                    }
+                    catch (e) {}
                 }
             }
 
@@ -38,9 +36,7 @@ async function updateUserRoles(client) {
                             );
                         }
                     }
-                    catch (e) {
-                        console.warn(`User with ID ${userId} no longer present in server.`);
-                    }
+                    catch (e) {}
                 }
             }
 
