@@ -13,11 +13,16 @@ async function updateUserRoles(client) {
             const warnings = db.getAllLastWarnings();
             for (const warning of warnings) {
                 if (!warning.until || now < warning.until) {
-                    const member = await guild.members.fetch(warning.usr_id);
-                    if (member.roles.cache.has(config.verifiedMemberRoleId)) {
-                        rolePromises.push(
-                            member.roles.remove(config.verifiedMemberRoleId).catch()
-                        );
+                    try {
+                        const member = await guild.members.fetch(warning.usr_id);
+                        if (member.roles.cache.has(config.verifiedMemberRoleId)) {
+                            rolePromises.push(
+                                member.roles.remove(config.verifiedMemberRoleId).catch()
+                            );
+                        }
+                    }
+                    catch (e) {
+                        console.warn(`User with ID ${warning.usr_id} no longer present.`);
                     }
                 }
             }
@@ -25,11 +30,16 @@ async function updateUserRoles(client) {
             const users = db.getKnownUserIds();
             for (const userId of users) {
                 if (!warnings.find(warning => warning.usr_id === userId)) {
-                    const member = await guild.members.fetch(userId);
-                    if (!member.roles.cache.has(config.verifiedMemberRoleId)) {
-                        rolePromises.push(
-                            member.roles.add(config.verifiedMemberRoleId).catch()
-                        );
+                    try {
+                        const member = await guild.members.fetch(userId);
+                        if (!member.roles.cache.has(config.verifiedMemberRoleId)) {
+                            rolePromises.push(
+                                member.roles.add(config.verifiedMemberRoleId).catch()
+                            );
+                        }
+                    }
+                    catch (e) {
+                        console.warn(`User with ID ${warning.usr_id} no longer present.`);
                     }
                 }
             }
